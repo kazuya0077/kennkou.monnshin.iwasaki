@@ -4,7 +4,7 @@ import { DISEASE_OPTIONS, CHECKUP_SIMPLE_OPTIONS, YES_NO_UNKNOWN } from './const
 import { BodyMap } from './components/BodyMap';
 import { RadioCard, CheckboxCard, ActionButton } from './components/UI';
 import { generatePDFFromElement, getBloodPressureAdvice, getBloodPressureStatus } from './utils/pdfGenerator';
-import { Activity, ChevronRight, ChevronLeft, Save, AlertTriangle, CheckCircle, FileText, Download, X } from 'lucide-react';
+import { Activity, ChevronRight, ChevronLeft, Save, AlertTriangle, CheckCircle, FileText, Download, X, Loader2 } from 'lucide-react';
 
 // 初期データ
 const INITIAL_DATA: PatientData = {
@@ -40,6 +40,8 @@ const App: React.FC = () => {
   const [formData, setFormData] = useState<PatientData>(INITIAL_DATA);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitStatus, setSubmitStatus] = useState<'idle' | 'success' | 'error'>('idle');
+  const [progressMessage, setProgressMessage] = useState('');
+  
   // API URL is now constant and hidden from UI manipulation
   const apiUrl = DEFAULT_API_URL;
 
@@ -139,37 +141,49 @@ const App: React.FC = () => {
   const handleSubmit = async () => {
     setIsSubmitting(true);
     setSubmitStatus('idle');
+    setProgressMessage('PDFレポートを作成しています...\nこれには数秒かかる場合があります');
 
     try {
+      // PDF生成処理の前に少し待機してUIを描画させる
+      await new Promise(resolve => setTimeout(resolve, 100));
+
       const pdfBlob = await generatePDFFromElement('pdf-report-content');
-      const reader = new FileReader();
       
-      reader.onloadend = async () => {
-        const base64PDF = (reader.result as string).split(',')[1];
-
-        const payload = {
-          ...formData,
-          bodyPartsSummary: formData.bodyParts.map(p => `${p.side === '中央' ? '' : p.side}${p.partName}:${p.symptom}:${p.level}`).join('／'),
-          diseasesStr: formData.diseases.join(','),
-          pdfFile: base64PDF
+      setProgressMessage('データを送信準備中...');
+      
+      // Blob to Base64 (Promisified)
+      const base64PDF = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onloadend = () => {
+          const result = reader.result as string;
+          resolve(result.split(',')[1]);
         };
+        reader.onerror = reject;
+        reader.readAsDataURL(pdfBlob);
+      });
 
-        const response = await fetch(apiUrl, {
-          method: 'POST',
-          headers: { 'Content-Type': 'text/plain' },
-          body: JSON.stringify(payload)
-        });
+      setProgressMessage('Googleスプレッドシートへ保存中...');
 
-        const result = await response.json();
-        
-        if (result.status === 'success') {
-          setSubmitStatus('success');
-        } else {
-          throw new Error(result.message || 'Unknown error');
-        }
+      const payload = {
+        ...formData,
+        bodyPartsSummary: formData.bodyParts.map(p => `${p.side === '中央' ? '' : p.side}${p.partName}:${p.symptom}:${p.level}`).join('／'),
+        diseasesStr: formData.diseases.join(','),
+        pdfFile: base64PDF
       };
 
-      reader.readAsDataURL(pdfBlob);
+      const response = await fetch(apiUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain' },
+        body: JSON.stringify(payload)
+      });
+
+      const result = await response.json();
+      
+      if (result.status === 'success') {
+        setSubmitStatus('success');
+      } else {
+        throw new Error(result.message || 'Unknown error');
+      }
 
     } catch (error) {
       console.error('Submission error:', error);
@@ -637,6 +651,17 @@ const App: React.FC = () => {
         <PdfReportTemplate data={formData} />
       </div>
 
+      {/* Loading Overlay */}
+      {isSubmitting && (
+        <div className="fixed inset-0 bg-slate-900/70 backdrop-blur-sm z-50 flex flex-col items-center justify-center animate-fade-in p-4 text-center">
+          <div className="bg-white p-8 rounded-3xl shadow-2xl flex flex-col items-center max-w-sm w-full">
+            <Loader2 className="w-12 h-12 text-medical-600 animate-spin mb-4" strokeWidth={2.5} />
+            <p className="text-lg font-bold text-slate-800 animate-pulse whitespace-pre-wrap leading-relaxed">{progressMessage}</p>
+            <p className="text-xs text-slate-400 mt-4 font-bold">画面を閉じないでください</p>
+          </div>
+        </div>
+      )}
+
       {/* Header */}
       <header className="bg-white border-b border-slate-200 sticky top-0 z-30 shadow-sm/50 backdrop-blur-md bg-white/90">
         <div className="max-w-4xl mx-auto px-6 h-16 flex items-center justify-between">
@@ -695,7 +720,7 @@ const App: React.FC = () => {
               variant={isSubmitting ? "secondary" : "success"}
               className="flex-[2]"
             >
-              {isSubmitting ? '保存中...' : 'GASで保存'}
+              {isSubmitting ? '処理中...' : 'GASで保存'}
               {!isSubmitting && <Save size={20} />}
             </ActionButton>
           )}
