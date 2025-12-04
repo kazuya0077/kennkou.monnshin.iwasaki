@@ -1,0 +1,5 @@
+{
+  "name": "健康問診チェックシート",
+  "description": "A comprehensive health screening application for medical professionals to record patient vitals, history, and fall risk assessments.",
+  "requestFramePermissions": []
+}
