@@ -21,27 +21,20 @@ export const generatePDFFromElement = async (elementId: string): Promise<Blob> =
   });
 
   const imgData = canvas.toDataURL('image/jpeg', 0.95);
-  
-  // 2. jsPDFでPDF化
-  // A4サイズ (210mm x 297mm)
-  const pdf = new jsPDF('p', 'mm', 'a4');
-  const pdfWidth = pdf.internal.pageSize.getWidth();
-  const pdfHeight = pdf.internal.pageSize.getHeight();
-  
-  const imgProps = pdf.getImageProperties(imgData);
-  const imgHeight = (imgProps.height * pdfWidth) / imgProps.width;
+  const imgWidth = canvas.width;
+  const imgHeight = canvas.height;
 
-  // 画像をPDFに追加
-  // 高さがA4より長い場合は複数ページにするロジックも追加可能だが、
-  // 今回はレポートをA4 1枚に収める前提、または縮小して収める
-  
-  if (imgHeight > pdfHeight) {
-    // ページまたぎが必要な場合（簡易実装として縮小または複数ページ）
-    // 今回の要件では、1枚のレポートを想定。
-    pdf.addImage(imgData, 'JPEG', 0, 0, pdfWidth, imgHeight);
-  } else {
-    pdf.addImage(imgData, 'JPEG', 0, 0, pdfWidth, imgHeight);
-  }
+  // PDFの幅をA4の横幅(210mm)に固定し、高さは比率で計算
+  const pdfWidthMm = 210;
+  const pdfHeightMm = (imgHeight * pdfWidthMm) / imgWidth;
+
+  // 2. jsPDFでPDF化
+  // 高さを含有量に合わせて動的に設定する (A4固定にしない)
+  // 向き: 'p' (portrait), 単位: 'mm', サイズ: [幅, 高さ]
+  const pdf = new jsPDF('p', 'mm', [pdfWidthMm, pdfHeightMm]);
+
+  // 画像をPDFに追加 (余白なしで配置)
+  pdf.addImage(imgData, 'JPEG', 0, 0, pdfWidthMm, pdfHeightMm);
 
   return pdf.output('blob');
 };

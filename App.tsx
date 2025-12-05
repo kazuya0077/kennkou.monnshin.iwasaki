@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { PatientData } from './types';
-import { DISEASE_OPTIONS, CHECKUP_SIMPLE_OPTIONS, YES_NO_UNKNOWN } from './constants';
+import { DISEASE_OPTIONS, CHECKUP_SIMPLE_OPTIONS, YES_NO_ONLY } from './constants';
 import { BodyMap } from './components/BodyMap';
 import { RadioCard, CheckboxCard, ActionButton } from './components/UI';
 import { generatePDFFromElement, getBloodPressureAdvice, getBloodPressureStatus } from './utils/pdfGenerator';
@@ -62,13 +62,14 @@ const App: React.FC = () => {
     const { fallHistory, unstableFeeling, fearOfFalling } = formData;
     let judgment: PatientData['fallRiskJudgment'] = '未判定';
 
-    if (fallHistory === 'はい' || unstableFeeling === 'はい' || fearOfFalling === 'はい') {
-      judgment = '転倒の危険がある';
-    } 
-    else if (fallHistory === 'いいえ' && unstableFeeling === 'いいえ' && fearOfFalling === 'いいえ') {
-      judgment = '今は低い';
-    } 
-    else {
+    // 全て選択されている場合のみ判定を行う
+    if (fallHistory && unstableFeeling && fearOfFalling) {
+      if (fallHistory === 'はい' || unstableFeeling === 'はい' || fearOfFalling === 'はい') {
+        judgment = '転倒の危険がある';
+      } else {
+        judgment = '今は低い';
+      }
+    } else {
       judgment = '未判定';
     }
 
@@ -103,9 +104,27 @@ const App: React.FC = () => {
     });
   };
 
+  // ステップごとのバリデーション
+  const isStepValid = () => {
+    switch (currentStep) {
+      case 1:
+        // 氏名は必須
+        return !!formData.fullName;
+      case 6:
+        // 3KQは全て回答必須
+        return formData.fallHistory !== '' && 
+               formData.unstableFeeling !== '' && 
+               formData.fearOfFalling !== '';
+      default:
+        return true;
+    }
+  };
+
   const handleNext = () => {
-    window.scrollTo(0, 0);
-    setCurrentStep(prev => prev + 1);
+    if (isStepValid()) {
+      window.scrollTo(0, 0);
+      setCurrentStep(prev => prev + 1);
+    }
   };
 
   const handleBack = () => {
@@ -166,7 +185,7 @@ const App: React.FC = () => {
 
       const payload = {
         ...formData,
-        bodyPartsSummary: formData.bodyParts.map(p => `${p.side === '中央' ? '' : p.side}${p.partName}:${p.symptom}:${p.level}`).join('／'),
+        bodyPartsSummary: formData.bodyParts.map(p => `${p.side === '中央' ? '' : p.side}${p.partName}（${p.symptom}：${p.level}/10）`).join('／'),
         diseasesStr: formData.diseases.join(','),
         pdfFile: base64PDF
       };
@@ -432,13 +451,13 @@ const App: React.FC = () => {
       case 6:
         return (
            <div className="space-y-8 animate-fade-in">
-             <h2 className="text-2xl font-bold text-slate-800 border-b pb-4">転倒リスクチェック (3KQ)</h2>
+             <h2 className="text-2xl font-bold text-slate-800 border-b pb-4">転倒リスクチェック (3KQ) <span className="text-red-600 text-sm">*必須</span></h2>
              
              {/* Q1 */}
              <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
                 <p className="font-bold text-lg text-slate-800 mb-4">Q1. 過去1年に転んだことはありますか？</p>
                 <div className="flex flex-col sm:flex-row gap-4 mb-4">
-                  {YES_NO_UNKNOWN.map(({value, label}) => (
+                  {YES_NO_ONLY.map(({value, label}) => (
                     <RadioCard
                       key={value}
                       name="fallHistory"
@@ -466,7 +485,7 @@ const App: React.FC = () => {
                      <div>
                        <label className="block text-sm font-bold text-slate-700 mb-2">転倒によるけが</label>
                        <div className="flex gap-3">
-                         {['あり', 'なし', '分からない'].map(opt => (
+                         {['あり', 'なし'].map(opt => (
                             <label key={opt} className="flex items-center bg-white px-4 py-2 rounded border border-slate-300 cursor-pointer hover:bg-slate-50">
                               <input 
                                 type="radio" 
@@ -489,7 +508,7 @@ const App: React.FC = () => {
              <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
                 <p className="font-bold text-lg text-slate-800 mb-4">Q2. 立っているときや歩いているときに、不安定だと感じることはありますか？</p>
                 <div className="flex flex-col sm:flex-row gap-4">
-                  {YES_NO_UNKNOWN.map(({value, label}) => (
+                  {YES_NO_ONLY.map(({value, label}) => (
                     <RadioCard
                       key={value}
                       name="unstableFeeling"
@@ -507,7 +526,7 @@ const App: React.FC = () => {
              <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
                 <p className="font-bold text-lg text-slate-800 mb-4">Q3. 転ぶのがこわいと感じますか？</p>
                 <div className="flex flex-col sm:flex-row gap-4">
-                  {YES_NO_UNKNOWN.map(({value, label}) => (
+                  {YES_NO_ONLY.map(({value, label}) => (
                     <RadioCard
                       key={value}
                       name="fearOfFalling"
@@ -706,7 +725,7 @@ const App: React.FC = () => {
           {currentStep < 8 ? (
             <ActionButton
               onClick={handleNext}
-              disabled={currentStep === 1 && !formData.fullName}
+              disabled={!isStepValid()}
               variant="primary"
               className="flex-[2]"
             >
@@ -744,7 +763,7 @@ const App: React.FC = () => {
   );
 };
 
-// --- PDF Report Template (A4 Size Layout) ---
+// --- PDF Report Template (Dynamic Size Layout) ---
 const PdfReportTemplate: React.FC<{ data: PatientData }> = ({ data }) => {
   // Determine color class for PDF report based on BP
   const bpColorClass = (sys: string, dia: string) => {
@@ -762,6 +781,7 @@ const PdfReportTemplate: React.FC<{ data: PatientData }> = ({ data }) => {
   const dia = parseInt(data.bpDiastolic);
 
   return (
+    // Note: We use w-[210mm] to simulate A4 width, but let height be auto
     <div id="pdf-report-content" className="w-[210mm] bg-white text-black p-[15mm] text-sm leading-relaxed box-border font-sans">
       
       {/* Header */}

@@ -20,11 +20,10 @@ export const CHECKUP_SIMPLE_OPTIONS = [
   '分からない',
 ];
 
-// 3KQ 選択肢
-export const YES_NO_UNKNOWN = [
+// 3KQ 選択肢 (はい/いいえ のみ)
+export const YES_NO_ONLY = [
   { value: 'はい', label: 'はい' },
   { value: 'いいえ', label: 'いいえ' },
-  { value: '分からない', label: '分からない' },
 ];
 
 // ボディマップの症状選択肢

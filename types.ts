@@ -26,11 +26,11 @@ export interface PatientData {
   checkupSpecific: 'ある' | 'ない' | '分からない' | ''; // 特定健診
 
   // Step 6: 転倒リスク (3KQ)
-  fallHistory: 'はい' | 'いいえ' | '分からない' | '';
+  fallHistory: 'はい' | 'いいえ' | '';
   fallCount: string; // 1回, 2回, 3回以上
-  fallInjury: 'あり' | 'なし' | '分からない' | '';
-  unstableFeeling: 'はい' | 'いいえ' | '分からない' | '';
-  fearOfFalling: 'はい' | 'いいえ' | '分からない' | '';
+  fallInjury: 'あり' | 'なし' | '';
+  unstableFeeling: 'はい' | 'いいえ' | '';
+  fearOfFalling: 'はい' | 'いいえ' | '';
   fallRiskJudgment: '転倒の危険がある' | '今は低い' | '未判定' | '';
 
   // Step 7: 血圧
