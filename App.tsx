@@ -4,7 +4,7 @@ import { DISEASE_OPTIONS, CHECKUP_SIMPLE_OPTIONS, YES_NO_ONLY } from './constant
 import { BodyMap } from './components/BodyMap';
 import { RadioCard, CheckboxCard, ActionButton } from './components/UI';
 import { generatePDFFromElement, getBloodPressureAdvice, getBloodPressureStatus } from './utils/pdfGenerator';
-import { Activity, ChevronRight, ChevronLeft, Save, AlertTriangle, CheckCircle, FileText, Download, X, Loader2 } from 'lucide-react';
+import { Activity, ChevronRight, ChevronLeft, Save, AlertTriangle, CheckCircle, FileText, Download, X, Loader2, RotateCcw } from 'lucide-react';
 
 // 初期データ
 const INITIAL_DATA: PatientData = {
@@ -216,6 +216,7 @@ const App: React.FC = () => {
     setFormData(INITIAL_DATA);
     setCurrentStep(1);
     setSubmitStatus('idle');
+    window.scrollTo(0, 0);
   };
 
   // Helper to get color class for BP
@@ -597,6 +598,19 @@ const App: React.FC = () => {
           <div className="space-y-8 animate-fade-in">
              <h2 className="text-2xl font-bold text-slate-800 border-b pb-4">内容の確認と保存</h2>
              
+             {/* 成功メッセージの表示エリア */}
+             {submitStatus === 'success' && (
+               <div className="bg-green-50 border border-green-200 rounded-xl p-4 flex items-center gap-3 text-green-800 animate-fade-in mb-4">
+                 <div className="bg-green-100 p-2 rounded-full">
+                   <CheckCircle size={24} className="text-green-600" />
+                 </div>
+                 <div>
+                   <p className="font-bold text-lg">保存が完了しました</p>
+                   <p className="text-sm">PDFをダウンロードするか、新しい入力を始めてください。</p>
+                 </div>
+               </div>
+             )}
+
              <div className="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-sm divide-y divide-slate-100">
                <Row label="氏名" value={formData.fullName} />
                <Row label="年齢 / 性別" value={`${formData.age}歳 / ${formData.gender}`} />
@@ -642,26 +656,7 @@ const App: React.FC = () => {
 
   // --- Main Render ---
 
-  if (submitStatus === 'success') {
-    return (
-      <div className="min-h-screen bg-slate-50 flex items-center justify-center p-6">
-        <div className="bg-white p-10 rounded-3xl shadow-xl border border-slate-100 max-w-md w-full text-center space-y-8 animate-scale-in">
-          <div className="mx-auto w-20 h-20 bg-green-100 text-green-600 rounded-full flex items-center justify-center mb-4">
-            <CheckCircle size={48} />
-          </div>
-          <div>
-            <h2 className="text-3xl font-bold text-slate-800 mb-3">送信完了</h2>
-            <p className="text-slate-600 leading-relaxed">
-              データが保存され、PDFがドライブにアップロードされました。
-            </p>
-          </div>
-          <ActionButton onClick={resetForm} variant="success" className="w-full justify-center">
-            新しい入力を始める
-          </ActionButton>
-        </div>
-      </div>
-    );
-  }
+  // NOTE: 送信成功時もrenderStepContentを表示し続けるため、以前の全画面成功表示ロジックは削除しました。
 
   return (
     <div className="min-h-screen bg-slate-50 font-sans pb-32 text-slate-900">
@@ -714,7 +709,7 @@ const App: React.FC = () => {
         <div className="max-w-4xl mx-auto flex justify-between gap-4">
           <ActionButton
             onClick={handleBack}
-            disabled={currentStep === 1 || isSubmitting}
+            disabled={currentStep === 1 || isSubmitting || submitStatus === 'success'} // 成功後は戻るボタンを無効化（データ不整合防止）
             variant="secondary"
             className="flex-1"
           >
@@ -733,15 +728,27 @@ const App: React.FC = () => {
               <ChevronRight size={20} />
             </ActionButton>
           ) : (
-            <ActionButton
-              onClick={handleSubmit}
-              disabled={isSubmitting}
-              variant={isSubmitting ? "secondary" : "success"}
-              className="flex-[2]"
-            >
-              {isSubmitting ? '処理中...' : 'GASで保存'}
-              {!isSubmitting && <Save size={20} />}
-            </ActionButton>
+            // 送信完了時は「新しい入力」ボタンに切り替える
+            submitStatus === 'success' ? (
+              <ActionButton
+                onClick={resetForm}
+                variant="success"
+                className="flex-[2]"
+              >
+                <RotateCcw size={20} />
+                新しい入力を始める
+              </ActionButton>
+            ) : (
+              <ActionButton
+                onClick={handleSubmit}
+                disabled={isSubmitting}
+                variant={isSubmitting ? "secondary" : "success"}
+                className="flex-[2]"
+              >
+                {isSubmitting ? '処理中...' : 'GASで保存'}
+                {!isSubmitting && <Save size={20} />}
+              </ActionButton>
+            )
           )}
         </div>
       </footer>
